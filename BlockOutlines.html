@@ -229,7 +229,8 @@ function handleDrop(e){
 }
 
 document.getElementById('generateBtn').addEventListener('click', generateGrid);
-window.addEventListener('load', generateGrid);
+// Ensure the grid renders even if the page load event does not fire
+document.addEventListener('DOMContentLoaded', generateGrid);
 </script>
 </body>
 </html>
