@@ -1,1 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Workshop Schedule Builder</title>
+<style>
+ body { font-family: Arial, sans-serif; margin: 20px; }
+ #controls { margin-bottom: 20px; }
+ #grid { display: grid; border: 1px solid #000; }
+ .cell { border: 1px solid #ccc; min-width: 100px; min-height: 25px; box-sizing: border-box; position: relative; }
+ .cell.scheduled { background: #d0eaff; }
+ .module { padding: 5px; margin: 5px 0; background: #f0f0f0; border: 1px solid #ccc; cursor: grab; }
+ .module:active { cursor: grabbing; }
+ #moduleList { max-width: 200px; }
+</style>
+</head>
+<body>
+<h1>Workshop Schedule Builder</h1>
+<div id="controls">
+<label>Days:
+<select id="daysSelect">
+  <option value="1">1</option>
+  <option value="2">2</option>
+  <option value="3">3</option>
+  <option value="4">4</option>
+  <option value="5">5</option>
+  <option value="10">10</option>
+</select>
+</label>
+<label>Start Time:
+<input type="time" id="startTime" value="08:00">
+</label>
+<label>End Time:
+<input type="time" id="endTime" value="17:00">
+</label>
+<button id="generateBtn">Generate Grid</button>
+</div>
+<div style="display:flex;">
+<div id="moduleList"></div>
+<div style="flex:1; overflow:auto;">
+<div id="grid"></div>
+</div>
+</div>
+<script>
+const modules = [];
+for(let min=15; min<=90; min+=5){
+  modules.push({id:min, name:`Module ${min} min`, duration:min});
+}
+const moduleList = document.getElementById('moduleList');
+modules.forEach(m => {
+  const div = document.createElement('div');
+  div.className = 'module';
+  div.draggable = true;
+  div.textContent = `${m.name}`;
+  div.dataset.duration = m.duration;
+  div.addEventListener('dragstart', e => {
+    e.dataTransfer.setData('text/plain', m.duration);
+    e.dataTransfer.setData('text/moduleName', m.name);
+  });
+  moduleList.appendChild(div);
+});
 
+const gridContainer = document.getElementById('grid');
+
+function minutesBetween(start, end){
+  const [sh, sm] = start.split(':').map(Number);
+  const [eh, em] = end.split(':').map(Number);
+  return (eh*60+em)-(sh*60+sm);
+}
+
+function timeAdd(time, minutes){
+  const [h, m] = time.split(':').map(Number);
+  const total = h*60 + m + minutes;
+  const hh = String(Math.floor(total/60)).padStart(2,'0');
+  const mm = String(total%60).padStart(2,'0');
+  return `${hh}:${mm}`;
+}
+
+function generateGrid(){
+  gridContainer.innerHTML = '';
+  const days = parseInt(document.getElementById('daysSelect').value);
+  const start = document.getElementById('startTime').value;
+  const end = document.getElementById('endTime').value;
+  const totalMinutes = minutesBetween(start,end);
+  if(totalMinutes <= 0){
+    alert('End time must be after start time');
+    return;
+  }
+  const rows = totalMinutes / 5;
+  gridContainer.style.gridTemplateColumns = `repeat(${days}, 1fr)`;
+  gridContainer.style.gridTemplateRows = `repeat(${rows}, 25px)`;
+  for(let r=0;r<rows;r++){
+    const timeLabel = timeAdd(start,r*5);
+    for(let d=0; d<days; d++){
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.dataset.day = d;
+      cell.dataset.time = timeLabel;
+      cell.addEventListener('dragover', e => e.preventDefault());
+      cell.addEventListener('drop', handleDrop);
+      gridContainer.appendChild(cell);
+    }
+  }
+}
+
+function handleDrop(e){
+  e.preventDefault();
+  const duration = parseInt(e.dataTransfer.getData('text/plain'));
+  const name = e.dataTransfer.getData('text/moduleName');
+  const requiredCells = duration / 5;
+  const day = parseInt(this.dataset.day);
+  // Get list of all cells in same column starting from this cell
+  const cells = Array.from(gridContainer.querySelectorAll(`.cell[data-day='${day}']`));
+  const index = cells.indexOf(this);
+  if(index < 0) return;
+  const targetCells = cells.slice(index, index+requiredCells);
+  if(targetCells.length < requiredCells || targetCells.some(c => c.classList.contains('scheduled'))){
+    alert('Not enough space for this module');
+    return;
+  }
+  targetCells.forEach((c,i)=>{
+    c.classList.add('scheduled');
+    if(i===0){
+      c.textContent = name + ` (${duration}m)`;
+    } else {
+      c.textContent = '';
+    }
+  });
+}
+
+document.getElementById('generateBtn').addEventListener('click', generateGrid);
+window.addEventListener('load', generateGrid);
+</script>
+</body>
+</html>
