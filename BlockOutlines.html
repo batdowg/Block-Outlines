@@ -11,7 +11,7 @@
  #timeLabels { display: grid; margin-right: 5px; text-align: right; font-size: 12px; min-width: 40px; }
   .time-label { line-height: 15px; }
   .time-label.header { background: #eee; font-weight: bold; }
-  .cell { border: 1px solid #ccc; min-width: 100px; min-height: 15px; box-sizing: border-box; position: relative; }
+  .cell { border: 1px solid #ccc; min-width: 150px; min-height: 15px; box-sizing: border-box; position: relative; }
  .cell.scheduled { background: #d0eaff; }
  .cell.scheduled.start { cursor: grab; }
  .cell.header { background: #eee; text-align:center; font-weight:bold; }
@@ -172,29 +172,34 @@ function renderModuleList(){
   moduleList.innerHTML = '';
   const selected = groupSelect.value;
   const mods = moduleGroups[selected].concat(customModules);
-  mods.filter(m => !m.scheduled).forEach(m => {
-    const div = document.createElement('div');
-    div.className = 'module';
-    div.draggable = true;
-    div.textContent = m.name;
-    div.dataset.duration = m.duration;
-    div.dataset.moduleName = m.name;
-    div.dataset.id = m.id;
-    if(m.color){
-      div.style.background = m.color;
-      if(isDark(m.color)) div.style.color = '#fff';
-    }
-    div.style.height = `${(m.duration/5)*ROW_HEIGHT}px`;
-    div.dataset.color = m.color || '';
-    div.addEventListener('dragstart', e => {
-      e.dataTransfer.setData('text/plain', m.duration);
-      e.dataTransfer.setData('text/moduleName', m.name);
-      e.dataTransfer.setData('text/color', div.dataset.color);
-      e.dataTransfer.setData('text/fromGrid', 'false');
-      e.dataTransfer.setData('text/moduleId', m.id);
+    mods.filter(m => !m.scheduled).forEach(m => {
+      const div = document.createElement('div');
+      div.className = 'module';
+      div.draggable = true;
+      div.textContent = m.name;
+      div.dataset.duration = m.duration;
+      div.dataset.moduleName = m.name;
+      div.dataset.id = m.id;
+      if(m.color){
+        div.style.background = m.color;
+        if(isDark(m.color)) div.style.color = '#fff';
+      }
+      div.style.height = `${(m.duration/5)*ROW_HEIGHT}px`;
+      div.dataset.color = m.color || '';
+      div.addEventListener('dragstart', e => {
+        e.dataTransfer.setData('text/plain', m.duration);
+        e.dataTransfer.setData('text/moduleName', m.name);
+        e.dataTransfer.setData('text/color', div.dataset.color);
+        e.dataTransfer.setData('text/fromGrid', 'false');
+        // Default modules are repeatable, give them a new id each drag
+        let dragId = m.id;
+        if(moduleGroups['Default'].includes(m)){
+          dragId = nextModuleId++;
+        }
+        e.dataTransfer.setData('text/moduleId', dragId);
+      });
+      moduleList.appendChild(div);
     });
-    moduleList.appendChild(div);
-  });
 }
 
 document.getElementById('addCustomModuleBtn').addEventListener('click', () => {
@@ -249,6 +254,8 @@ function unscheduleModule(moduleId){
     c.removeAttribute('data-color');
     c.style.background = '';
     c.style.color = '';
+    c.style.borderTop = '';
+    c.style.borderBottom = '';
     c.draggable = false;
     c.removeEventListener('dragstart', dragStartScheduled);
   });
@@ -266,6 +273,17 @@ function scheduleModule(name, duration, day, index, moduleId, color){
     c.dataset.duration = duration;
     c.dataset.moduleName = name;
     c.dataset.color = color || '';
+    // adjust borders so contiguous cells appear as one block
+    if(i === 0){
+      c.style.borderTop = '';
+    } else {
+      c.style.borderTop = 'none';
+    }
+    if(i === targetCells.length - 1){
+      c.style.borderBottom = '';
+    } else {
+      c.style.borderBottom = 'none';
+    }
     if(i===0){
       c.classList.add('start');
       c.textContent = `${name} (${duration}m)`;
@@ -288,12 +306,6 @@ function timeAdd(time, minutes){
   const total = h*60 + m + minutes;
   const hh = String(Math.floor(total/60)).padStart(2,'0');
   const mm = String(total%60).padStart(2,'0');
-  return `${hh}:${mm}`;
-}
-
-function formatRelative(minutes){
-  const hh = String(Math.floor(minutes/60));
-  const mm = String(minutes%60).padStart(2,'0');
   return `${hh}:${mm}`;
 }
 
@@ -326,11 +338,10 @@ function generateGrid(){
 
   for(let r=0;r<rows;r++){
     const timeLabel = timeAdd(start,r*5);
-    const relMinutes = r*5;
     const labelDiv = document.createElement('div');
     labelDiv.className = 'time-label';
     if(r % 6 === 0){
-      labelDiv.textContent = formatRelative(relMinutes);
+      labelDiv.textContent = timeLabel;
     }
     timeLabelContainer.appendChild(labelDiv);
     for(let d=0; d<days; d++){
@@ -368,7 +379,9 @@ function handleDrop(e){
     unscheduleModule(existingId);
   } else {
     const mod = findModuleById(moduleId);
-    if(mod) mod.scheduled = true;
+    if(mod && !moduleGroups['Default'].includes(mod)){
+      mod.scheduled = true;
+    }
     renderModuleList();
   }
   scheduleModule(name, duration, day, index, moduleId, color);
