@@ -8,8 +8,9 @@
  body { font-family: Arial, sans-serif; margin: 20px; }
  #controls { margin-bottom: 20px; }
  #grid { display: grid; border: 1px solid #000; }
- .cell { border: 1px solid #ccc; min-width: 100px; min-height: 25px; box-sizing: border-box; position: relative; }
- .cell.scheduled { background: #d0eaff; }
+  .cell { border: 1px solid #ccc; min-width: 100px; min-height: 25px; box-sizing: border-box; position: relative; }
+  .cell.scheduled { background: #d0eaff; }
+  .cell.scheduled.start { cursor: grab; }
  .module { padding: 5px; margin: 5px 0; background: #f0f0f0; border: 1px solid #ccc; cursor: grab; }
  .module:active { cursor: grabbing; }
  #moduleList { max-width: 200px; }
@@ -44,6 +45,7 @@
 </div>
 <script>
 const modules = [];
+let moduleCounter = 0;
 for(let min=15; min<=90; min+=5){
   modules.push({id:min, name:`Module ${min} min`, duration:min});
 }
@@ -57,11 +59,53 @@ modules.forEach(m => {
   div.addEventListener('dragstart', e => {
     e.dataTransfer.setData('text/plain', m.duration);
     e.dataTransfer.setData('text/moduleName', m.name);
+    e.dataTransfer.setData('text/fromGrid', 'false');
   });
   moduleList.appendChild(div);
 });
 
 const gridContainer = document.getElementById('grid');
+
+function dragStartScheduled(e){
+  const cell = e.target;
+  e.dataTransfer.setData('text/plain', cell.dataset.duration);
+  e.dataTransfer.setData('text/moduleName', cell.dataset.moduleName);
+  e.dataTransfer.setData('text/fromGrid', 'true');
+  e.dataTransfer.setData('text/moduleId', cell.dataset.moduleId);
+}
+
+function unscheduleModule(moduleId){
+  const cells = Array.from(gridContainer.querySelectorAll(`.cell[data-module-id='${moduleId}']`));
+  cells.forEach(c => {
+    c.classList.remove('scheduled', 'start');
+    c.textContent = '';
+    c.removeAttribute('data-module-id');
+    c.removeAttribute('data-duration');
+    c.removeAttribute('data-module-name');
+    c.draggable = false;
+    c.removeEventListener('dragstart', dragStartScheduled);
+  });
+}
+
+function scheduleModule(name, duration, day, index, moduleId){
+  const requiredCells = duration / 5;
+  const cells = Array.from(gridContainer.querySelectorAll(`.cell[data-day='${day}']`));
+  const targetCells = cells.slice(index, index + requiredCells);
+  targetCells.forEach((c,i) => {
+    c.classList.add('scheduled');
+    c.dataset.moduleId = moduleId;
+    c.dataset.duration = duration;
+    c.dataset.moduleName = name;
+    if(i===0){
+      c.classList.add('start');
+      c.textContent = `${name} (${duration}m)`;
+      c.draggable = true;
+      c.addEventListener('dragstart', dragStartScheduled);
+    } else {
+      c.textContent = '';
+    }
+  });
+}
 
 function minutesBetween(start, end){
   const [sh, sm] = start.split(':').map(Number);
@@ -108,25 +152,24 @@ function handleDrop(e){
   e.preventDefault();
   const duration = parseInt(e.dataTransfer.getData('text/plain'));
   const name = e.dataTransfer.getData('text/moduleName');
+  const fromGrid = e.dataTransfer.getData('text/fromGrid') === 'true';
+  const existingId = e.dataTransfer.getData('text/moduleId');
   const requiredCells = duration / 5;
   const day = parseInt(this.dataset.day);
-  // Get list of all cells in same column starting from this cell
   const cells = Array.from(gridContainer.querySelectorAll(`.cell[data-day='${day}']`));
   const index = cells.indexOf(this);
   if(index < 0) return;
-  const targetCells = cells.slice(index, index+requiredCells);
-  if(targetCells.length < requiredCells || targetCells.some(c => c.classList.contains('scheduled'))){
+  const targetCells = cells.slice(index, index + requiredCells);
+  if(targetCells.length < requiredCells || targetCells.some(c => c.classList.contains('scheduled') && c.dataset.moduleId !== existingId)){
     alert('Not enough space for this module');
     return;
   }
-  targetCells.forEach((c,i)=>{
-    c.classList.add('scheduled');
-    if(i===0){
-      c.textContent = name + ` (${duration}m)`;
-    } else {
-      c.textContent = '';
-    }
-  });
+
+  const moduleId = fromGrid ? existingId : `m${moduleCounter++}`;
+  if(fromGrid){
+    unscheduleModule(existingId);
+  }
+  scheduleModule(name, duration, day, index, moduleId);
 }
 
 document.getElementById('generateBtn').addEventListener('click', generateGrid);
