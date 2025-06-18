@@ -12,9 +12,26 @@
  .cell.scheduled { background: #d0eaff; }
  .cell.scheduled.start { cursor: grab; }
  .cell.header { background: #eee; text-align:center; font-weight:bold; }
- .module { padding: 5px; margin: 5px 0; background: #f0f0f0; border: 1px solid #ccc; cursor: grab; }
- .module:active { cursor: grabbing; }
- #moduleList { max-width: 200px; }
+  .module {
+    padding: 5px;
+    margin: 5px 0;
+    background: #f0f0f0;
+    border: 1px solid #ccc;
+    cursor: grab;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .module:active { cursor: grabbing; }
+  #moduleList {
+    max-width: 200px;
+    border: 1px solid #000;
+    display: flex;
+    flex-direction: column;
+    padding: 5px;
+    margin-right: 10px;
+  }
 </style>
 </head>
 <body>
@@ -63,21 +80,41 @@ groupNames.forEach(g => {
   moduleGroups[g] = [];
 });
 
+let nextModuleId = 0;
+
+function isDark(color){
+  if(!color) return false;
+  const c = color.substring(1);
+  const r = parseInt(c.substr(0,2),16);
+  const g = parseInt(c.substr(2,2),16);
+  const b = parseInt(c.substr(4,2),16);
+  const brightness = (r*299 + g*587 + b*114)/1000;
+  return brightness < 128;
+}
+
+function findModuleById(id){
+  for(const g of groupNames){
+    const m = moduleGroups[g].find(x => x.id == id);
+    if(m) return m;
+  }
+  return customModules.find(x => x.id == id);
+}
+
 const SA_TEACH_COLOR = '#0057b7';
 const SA_LIGHT_COLOR = '#669de5';
 moduleGroups['SA'] = [
-  {name: 'SA Discovery 30', duration: 30, color: SA_LIGHT_COLOR},
-  {name: 'SA Discovery 45', duration: 45, color: SA_LIGHT_COLOR},
-  {name: 'Debrief 15', duration: 15, color: SA_LIGHT_COLOR},
-  {name: 'SA Teach: Introduction 15', duration: 5, color: SA_TEACH_COLOR},
-  {name: 'SA Teach: ID Concerns 45', duration: 45, color: SA_TEACH_COLOR},
-  {name: 'SA Teach: Set Priority 30', duration: 30, color: SA_TEACH_COLOR},
-  {name: 'SA Teach: Plan Next Steps 10', duration: 10, color: SA_TEACH_COLOR},
-  {name: 'SA Teach: Plan Involvement 10', duration: 10, color: SA_TEACH_COLOR},
-  {name: 'SA Practice 30', duration: 30, color: SA_LIGHT_COLOR},
-  {name: 'SA Practice 45', duration: 45, color: SA_LIGHT_COLOR},
-  {name: 'SA Application 30', duration: 30, color: SA_LIGHT_COLOR},
-  {name: 'SA Application 45', duration: 45, color: SA_LIGHT_COLOR}
+  {id: nextModuleId++, name: 'SA Discovery 30', duration: 30, color: SA_LIGHT_COLOR},
+  {id: nextModuleId++, name: 'SA Discovery 45', duration: 45, color: SA_LIGHT_COLOR},
+  {id: nextModuleId++, name: 'Debrief 15', duration: 15, color: SA_LIGHT_COLOR},
+  {id: nextModuleId++, name: 'SA Teach: Introduction 15', duration: 5, color: SA_TEACH_COLOR},
+  {id: nextModuleId++, name: 'SA Teach: ID Concerns 45', duration: 45, color: SA_TEACH_COLOR},
+  {id: nextModuleId++, name: 'SA Teach: Set Priority 30', duration: 30, color: SA_TEACH_COLOR},
+  {id: nextModuleId++, name: 'SA Teach: Plan Next Steps 10', duration: 10, color: SA_TEACH_COLOR},
+  {id: nextModuleId++, name: 'SA Teach: Plan Involvement 10', duration: 10, color: SA_TEACH_COLOR},
+  {id: nextModuleId++, name: 'SA Practice 30', duration: 30, color: SA_LIGHT_COLOR},
+  {id: nextModuleId++, name: 'SA Practice 45', duration: 45, color: SA_LIGHT_COLOR},
+  {id: nextModuleId++, name: 'SA Application 30', duration: 30, color: SA_LIGHT_COLOR},
+  {id: nextModuleId++, name: 'SA Application 45', duration: 45, color: SA_LIGHT_COLOR}
 ];
 
 const customModules = [];
@@ -96,22 +133,26 @@ function renderModuleList(){
   moduleList.innerHTML = '';
   const selected = groupSelect.value;
   const mods = moduleGroups[selected].concat(customModules);
-  mods.forEach(m => {
+  mods.filter(m => !m.scheduled).forEach(m => {
     const div = document.createElement('div');
     div.className = 'module';
     div.draggable = true;
     div.textContent = m.name;
     div.dataset.duration = m.duration;
     div.dataset.moduleName = m.name;
+    div.dataset.id = m.id;
     if(m.color){
       div.style.background = m.color;
+      if(isDark(m.color)) div.style.color = '#fff';
     }
+    div.style.height = `${(m.duration/5)*25}px`;
     div.dataset.color = m.color || '';
     div.addEventListener('dragstart', e => {
       e.dataTransfer.setData('text/plain', m.duration);
       e.dataTransfer.setData('text/moduleName', m.name);
       e.dataTransfer.setData('text/color', div.dataset.color);
       e.dataTransfer.setData('text/fromGrid', 'false');
+      e.dataTransfer.setData('text/moduleId', m.id);
     });
     moduleList.appendChild(div);
   });
@@ -124,17 +165,29 @@ document.getElementById('addCustomModuleBtn').addEventListener('click', () => {
     alert('Duration and title required');
     return;
   }
-  customModules.push({name:title, duration:dur});
+  customModules.push({id: nextModuleId++, name:title, duration:dur});
   document.getElementById('customTitle').value = '';
   renderModuleList();
 });
 
 groupSelect.addEventListener('change', renderModuleList);
 
-let moduleCounter = 0;
 renderModuleList();
 
 const gridContainer = document.getElementById('grid');
+
+moduleList.addEventListener('dragover', e => e.preventDefault());
+moduleList.addEventListener('drop', e => {
+  e.preventDefault();
+  const fromGrid = e.dataTransfer.getData('text/fromGrid') === 'true';
+  const moduleId = e.dataTransfer.getData('text/moduleId');
+  if(fromGrid && moduleId){
+    unscheduleModule(moduleId);
+    const mod = findModuleById(moduleId);
+    if(mod) mod.scheduled = false;
+    renderModuleList();
+  }
+});
 
 function dragStartScheduled(e){
   const cell = e.target;
@@ -155,6 +208,7 @@ function unscheduleModule(moduleId){
     c.removeAttribute('data-module-name');
     c.removeAttribute('data-color');
     c.style.background = '';
+    c.style.color = '';
     c.draggable = false;
     c.removeEventListener('dragstart', dragStartScheduled);
   });
@@ -167,6 +221,7 @@ function scheduleModule(name, duration, day, index, moduleId, color){
   targetCells.forEach((c,i) => {
     c.classList.add('scheduled');
     c.style.background = color || '';
+    if(isDark(color)) c.style.color = '#fff'; else c.style.color = '#000';
     c.dataset.moduleId = moduleId;
     c.dataset.duration = duration;
     c.dataset.moduleName = name;
@@ -249,9 +304,13 @@ function handleDrop(e){
     return;
   }
 
-  const moduleId = fromGrid ? existingId : `m${moduleCounter++}`;
+  const moduleId = fromGrid ? existingId : e.dataTransfer.getData('text/moduleId');
   if(fromGrid){
     unscheduleModule(existingId);
+  } else {
+    const mod = findModuleById(moduleId);
+    if(mod) mod.scheduled = true;
+    renderModuleList();
   }
   scheduleModule(name, duration, day, index, moduleId, color);
 }
