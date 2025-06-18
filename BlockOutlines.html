@@ -8,7 +8,7 @@
  body { font-family: Arial, sans-serif; margin: 20px; }
  #controls { margin-bottom: 20px; }
  #grid { display: grid; border: 1px solid #000; }
-  .cell { border: 1px solid #ccc; min-width: 100px; min-height: 25px; box-sizing: border-box; position: relative; }
+  .cell { border: 1px solid #ccc; min-width: 100px; min-height: 20px; box-sizing: border-box; position: relative; }
  .cell.scheduled { background: #d0eaff; }
  .cell.scheduled.start { cursor: grab; }
  .cell.header { background: #eee; text-align:center; font-weight:bold; }
@@ -35,7 +35,7 @@
 </style>
 </head>
 <body>
-<h1>Workshop Schedule Builder</h1>
+<h1>Workshop Outline Builder</h1>
 <div id="controls">
 <label>Days:
 <select id="daysSelect">
@@ -106,7 +106,7 @@ moduleGroups['SA'] = [
   {id: nextModuleId++, name: 'SA Discovery 30', duration: 30, color: SA_LIGHT_COLOR},
   {id: nextModuleId++, name: 'SA Discovery 45', duration: 45, color: SA_LIGHT_COLOR},
   {id: nextModuleId++, name: 'Debrief 15', duration: 15, color: SA_LIGHT_COLOR},
-  {id: nextModuleId++, name: 'SA Teach: Introduction 15', duration: 5, color: SA_TEACH_COLOR},
+  {id: nextModuleId++, name: 'SA Teach: Introduction 15', duration: 15, color: SA_TEACH_COLOR},
   {id: nextModuleId++, name: 'SA Teach: ID Concerns 45', duration: 45, color: SA_TEACH_COLOR},
   {id: nextModuleId++, name: 'SA Teach: Set Priority 30', duration: 30, color: SA_TEACH_COLOR},
   {id: nextModuleId++, name: 'SA Teach: Plan Next Steps 10', duration: 10, color: SA_TEACH_COLOR},
@@ -115,6 +115,38 @@ moduleGroups['SA'] = [
   {id: nextModuleId++, name: 'SA Practice 45', duration: 45, color: SA_LIGHT_COLOR},
   {id: nextModuleId++, name: 'SA Application 30', duration: 30, color: SA_LIGHT_COLOR},
   {id: nextModuleId++, name: 'SA Application 45', duration: 45, color: SA_LIGHT_COLOR}
+];
+
+const PA_COLOR = '#E03C31';
+moduleGroups['PA'] = [
+  {id: nextModuleId++, name: 'PA Discovery 30', duration: 30, color: PA_COLOR},
+  {id: nextModuleId++, name: 'PA Discovery 45', duration: 45, color: PA_COLOR},
+  {id: nextModuleId++, name: 'Debrief 15', duration: 15, color: PA_COLOR},
+  {id: nextModuleId++, name: 'PA Teach: Introduction 15', duration: 15, color: PA_COLOR},
+  {id: nextModuleId++, name: 'PA Teach: Describe Problem 45', duration: 45, color: PA_COLOR},
+  {id: nextModuleId++, name: 'PA Teach: Identify Possible Causes 45', duration: 30, color: PA_COLOR},
+  {id: nextModuleId++, name: 'PA Teach: Evaluate Possible Causes 10', duration: 10, color: PA_COLOR},
+  {id: nextModuleId++, name: 'PA Teach: Confirm True Cause 10', duration: 10, color: PA_COLOR},
+  {id: nextModuleId++, name: 'PA Teach: Advanced Techniques', duration: 30, color: PA_COLOR},
+  {id: nextModuleId++, name: 'PA Practice 30', duration: 30, color: PA_COLOR},
+  {id: nextModuleId++, name: 'PA Practice 45', duration: 45, color: PA_COLOR},
+  {id: nextModuleId++, name: 'PA Application 30', duration: 30, color: PA_COLOR},
+  {id: nextModuleId++, name: 'PA Application 45', duration: 45, color: PA_COLOR}
+];
+
+const DEFAULT_COLOR = '#cccccc';
+moduleGroups['Default'] = [
+  {id: nextModuleId++, name: 'Introduction 15', duration: 15, color: DEFAULT_COLOR},
+  {id: nextModuleId++, name: 'Introduction 30', duration: 30, color: DEFAULT_COLOR},
+  {id: nextModuleId++, name: 'Debrief 15', duration: 15, color: DEFAULT_COLOR},
+  {id: nextModuleId++, name: 'Review 15', duration: 15, color: DEFAULT_COLOR},
+  {id: nextModuleId++, name: 'Review 30', duration: 30, color: DEFAULT_COLOR},
+  {id: nextModuleId++, name: 'Lunch 30', duration: 30, color: DEFAULT_COLOR},
+  {id: nextModuleId++, name: 'Lunch 45', duration: 45, color: DEFAULT_COLOR},
+  {id: nextModuleId++, name: 'Lunch 60', duration: 60, color: DEFAULT_COLOR},
+  {id: nextModuleId++, name: 'Break 10', duration: 10, color: DEFAULT_COLOR},
+  {id: nextModuleId++, name: 'Break 15', duration: 15, color: DEFAULT_COLOR},
+  {id: nextModuleId++, name: 'Conclusion 30', duration: 30, color: DEFAULT_COLOR}
 ];
 
 const customModules = [];
@@ -145,7 +177,7 @@ function renderModuleList(){
       div.style.background = m.color;
       if(isDark(m.color)) div.style.color = '#fff';
     }
-    div.style.height = `${(m.duration/5)*25}px`;
+    div.style.height = `${(m.duration/5)*20}px`;
     div.dataset.color = m.color || '';
     div.addEventListener('dragstart', e => {
       e.dataTransfer.setData('text/plain', m.duration);
@@ -263,7 +295,7 @@ function generateGrid(){
   }
   const rows = totalMinutes / 5;
   gridContainer.style.gridTemplateColumns = `repeat(${days}, 1fr)`;
-  gridContainer.style.gridTemplateRows = `30px repeat(${rows}, 25px)`;
+  gridContainer.style.gridTemplateRows = `30px repeat(${rows}, 20px)`;
 
   for(let d=0; d<days; d++){
     const header = document.createElement('div');
