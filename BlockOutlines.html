@@ -8,7 +8,10 @@
  body { font-family: Arial, sans-serif; margin: 20px; }
  #controls { margin-bottom: 20px; }
  #grid { display: grid; border: 1px solid #000; }
-  .cell { border: 1px solid #ccc; min-width: 100px; min-height: 20px; box-sizing: border-box; position: relative; }
+ #timeLabels { display: grid; margin-right: 5px; text-align: right; font-size: 12px; min-width: 40px; }
+  .time-label { line-height: 15px; }
+  .time-label.header { background: #eee; font-weight: bold; }
+  .cell { border: 1px solid #ccc; min-width: 100px; min-height: 15px; box-sizing: border-box; position: relative; }
  .cell.scheduled { background: #d0eaff; }
  .cell.scheduled.start { cursor: grab; }
  .cell.header { background: #eee; text-align:center; font-weight:bold; }
@@ -70,7 +73,10 @@
 <div style="display:flex;">
 <div id="moduleList"></div>
 <div style="flex:1; overflow:auto;">
-<div id="grid"></div>
+  <div style="display:flex;">
+    <div id="timeLabels"></div>
+    <div id="grid"></div>
+  </div>
 </div>
 </div>
 <script>
@@ -81,6 +87,7 @@ groupNames.forEach(g => {
 });
 
 let nextModuleId = 0;
+const ROW_HEIGHT = 15;
 
 function isDark(color){
   if(!color) return false;
@@ -177,7 +184,7 @@ function renderModuleList(){
       div.style.background = m.color;
       if(isDark(m.color)) div.style.color = '#fff';
     }
-    div.style.height = `${(m.duration/5)*20}px`;
+    div.style.height = `${(m.duration/5)*ROW_HEIGHT}px`;
     div.dataset.color = m.color || '';
     div.addEventListener('dragstart', e => {
       e.dataTransfer.setData('text/plain', m.duration);
@@ -207,6 +214,7 @@ groupSelect.addEventListener('change', renderModuleList);
 renderModuleList();
 
 const gridContainer = document.getElementById('grid');
+const timeLabelContainer = document.getElementById('timeLabels');
 
 moduleList.addEventListener('dragover', e => e.preventDefault());
 moduleList.addEventListener('drop', e => {
@@ -283,8 +291,15 @@ function timeAdd(time, minutes){
   return `${hh}:${mm}`;
 }
 
+function formatRelative(minutes){
+  const hh = String(Math.floor(minutes/60));
+  const mm = String(minutes%60).padStart(2,'0');
+  return `${hh}:${mm}`;
+}
+
 function generateGrid(){
   gridContainer.innerHTML = '';
+  timeLabelContainer.innerHTML = '';
   const days = parseInt(document.getElementById('daysSelect').value);
   const start = document.getElementById('startTime').value;
   const end = document.getElementById('endTime').value;
@@ -295,7 +310,12 @@ function generateGrid(){
   }
   const rows = totalMinutes / 5;
   gridContainer.style.gridTemplateColumns = `repeat(${days}, 1fr)`;
-  gridContainer.style.gridTemplateRows = `30px repeat(${rows}, 20px)`;
+  gridContainer.style.gridTemplateRows = `30px repeat(${rows}, ${ROW_HEIGHT}px)`;
+  timeLabelContainer.style.gridTemplateRows = `30px repeat(${rows}, ${ROW_HEIGHT}px)`;
+
+  const headerLabel = document.createElement('div');
+  headerLabel.className = 'time-label header';
+  timeLabelContainer.appendChild(headerLabel);
 
   for(let d=0; d<days; d++){
     const header = document.createElement('div');
@@ -306,6 +326,13 @@ function generateGrid(){
 
   for(let r=0;r<rows;r++){
     const timeLabel = timeAdd(start,r*5);
+    const relMinutes = r*5;
+    const labelDiv = document.createElement('div');
+    labelDiv.className = 'time-label';
+    if(r % 6 === 0){
+      labelDiv.textContent = formatRelative(relMinutes);
+    }
+    timeLabelContainer.appendChild(labelDiv);
     for(let d=0; d<days; d++){
       const cell = document.createElement('div');
       cell.className = 'cell';
