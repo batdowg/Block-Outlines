@@ -9,8 +9,9 @@
  #controls { margin-bottom: 20px; }
  #grid { display: grid; border: 1px solid #000; }
   .cell { border: 1px solid #ccc; min-width: 100px; min-height: 25px; box-sizing: border-box; position: relative; }
-  .cell.scheduled { background: #d0eaff; }
-  .cell.scheduled.start { cursor: grab; }
+ .cell.scheduled { background: #d0eaff; }
+ .cell.scheduled.start { cursor: grab; }
+ .cell.header { background: #eee; text-align:center; font-weight:bold; }
  .module { padding: 5px; margin: 5px 0; background: #f0f0f0; border: 1px solid #ccc; cursor: grab; }
  .module:active { cursor: grabbing; }
  #moduleList { max-width: 200px; }
@@ -56,20 +57,28 @@
 </div>
 </div>
 <script>
-const defaultModules = [];
-for(let min=15; min<=90; min+=15){
-  defaultModules.push({name:`Break ${min} min`, duration:min});
-}
-
 const groupNames = ["SA","PA","DA","PPA","POA","Default","MIM","ATS","PSDMxp","LDI"];
 const moduleGroups = {};
 groupNames.forEach(g => {
-  moduleGroups[g] = [
-    {name:`${g}-Teach`, duration:30},
-    {name:`${g}-Application`, duration:45},
-    ...defaultModules
-  ];
+  moduleGroups[g] = [];
 });
+
+const SA_TEACH_COLOR = '#0057b7';
+const SA_LIGHT_COLOR = '#669de5';
+moduleGroups['SA'] = [
+  {name: 'SA Discovery 30', duration: 30, color: SA_LIGHT_COLOR},
+  {name: 'SA Discovery 45', duration: 45, color: SA_LIGHT_COLOR},
+  {name: 'Debrief 15', duration: 15, color: SA_LIGHT_COLOR},
+  {name: 'SA Teach: Introduction 15', duration: 5, color: SA_TEACH_COLOR},
+  {name: 'SA Teach: ID Concerns 45', duration: 45, color: SA_TEACH_COLOR},
+  {name: 'SA Teach: Set Priority 30', duration: 30, color: SA_TEACH_COLOR},
+  {name: 'SA Teach: Plan Next Steps 10', duration: 10, color: SA_TEACH_COLOR},
+  {name: 'SA Teach: Plan Involvement 10', duration: 10, color: SA_TEACH_COLOR},
+  {name: 'SA Practice 30', duration: 30, color: SA_LIGHT_COLOR},
+  {name: 'SA Practice 45', duration: 45, color: SA_LIGHT_COLOR},
+  {name: 'SA Application 30', duration: 30, color: SA_LIGHT_COLOR},
+  {name: 'SA Application 45', duration: 45, color: SA_LIGHT_COLOR}
+];
 
 const customModules = [];
 const moduleList = document.getElementById('moduleList');
@@ -94,9 +103,14 @@ function renderModuleList(){
     div.textContent = m.name;
     div.dataset.duration = m.duration;
     div.dataset.moduleName = m.name;
+    if(m.color){
+      div.style.background = m.color;
+    }
+    div.dataset.color = m.color || '';
     div.addEventListener('dragstart', e => {
       e.dataTransfer.setData('text/plain', m.duration);
       e.dataTransfer.setData('text/moduleName', m.name);
+      e.dataTransfer.setData('text/color', div.dataset.color);
       e.dataTransfer.setData('text/fromGrid', 'false');
     });
     moduleList.appendChild(div);
@@ -128,6 +142,7 @@ function dragStartScheduled(e){
   e.dataTransfer.setData('text/moduleName', cell.dataset.moduleName);
   e.dataTransfer.setData('text/fromGrid', 'true');
   e.dataTransfer.setData('text/moduleId', cell.dataset.moduleId);
+  e.dataTransfer.setData('text/color', cell.dataset.color || '');
 }
 
 function unscheduleModule(moduleId){
@@ -138,20 +153,24 @@ function unscheduleModule(moduleId){
     c.removeAttribute('data-module-id');
     c.removeAttribute('data-duration');
     c.removeAttribute('data-module-name');
+    c.removeAttribute('data-color');
+    c.style.background = '';
     c.draggable = false;
     c.removeEventListener('dragstart', dragStartScheduled);
   });
 }
 
-function scheduleModule(name, duration, day, index, moduleId){
+function scheduleModule(name, duration, day, index, moduleId, color){
   const requiredCells = duration / 5;
   const cells = Array.from(gridContainer.querySelectorAll(`.cell[data-day='${day}']`));
   const targetCells = cells.slice(index, index + requiredCells);
   targetCells.forEach((c,i) => {
     c.classList.add('scheduled');
+    c.style.background = color || '';
     c.dataset.moduleId = moduleId;
     c.dataset.duration = duration;
     c.dataset.moduleName = name;
+    c.dataset.color = color || '';
     if(i===0){
       c.classList.add('start');
       c.textContent = `${name} (${duration}m)`;
@@ -189,7 +208,15 @@ function generateGrid(){
   }
   const rows = totalMinutes / 5;
   gridContainer.style.gridTemplateColumns = `repeat(${days}, 1fr)`;
-  gridContainer.style.gridTemplateRows = `repeat(${rows}, 25px)`;
+  gridContainer.style.gridTemplateRows = `30px repeat(${rows}, 25px)`;
+
+  for(let d=0; d<days; d++){
+    const header = document.createElement('div');
+    header.className = 'cell header';
+    header.textContent = `Day ${d+1}`;
+    gridContainer.appendChild(header);
+  }
+
   for(let r=0;r<rows;r++){
     const timeLabel = timeAdd(start,r*5);
     for(let d=0; d<days; d++){
@@ -210,6 +237,7 @@ function handleDrop(e){
   const name = e.dataTransfer.getData('text/moduleName');
   const fromGrid = e.dataTransfer.getData('text/fromGrid') === 'true';
   const existingId = e.dataTransfer.getData('text/moduleId');
+  const color = e.dataTransfer.getData('text/color');
   const requiredCells = duration / 5;
   const day = parseInt(this.dataset.day);
   const cells = Array.from(gridContainer.querySelectorAll(`.cell[data-day='${day}']`));
@@ -225,7 +253,7 @@ function handleDrop(e){
   if(fromGrid){
     unscheduleModule(existingId);
   }
-  scheduleModule(name, duration, day, index, moduleId);
+  scheduleModule(name, duration, day, index, moduleId, color);
 }
 
 document.getElementById('generateBtn').addEventListener('click', generateGrid);
