@@ -35,6 +35,18 @@
 <label>End Time:
 <input type="time" id="endTime" value="17:00">
 </label>
+<label>Module Group:
+<select id="groupSelect"></select>
+</label>
+<div id="customModuleControls" style="margin-top:10px;">
+  <label>Custom Duration (min):
+    <input type="number" id="customDuration" min="5" step="5" value="30">
+  </label>
+  <label>Title:
+    <input type="text" id="customTitle">
+  </label>
+  <button id="addCustomModuleBtn" type="button">Add Custom Module</button>
+</div>
 <button id="generateBtn">Generate Grid</button>
 </div>
 <div style="display:flex;">
@@ -44,25 +56,69 @@
 </div>
 </div>
 <script>
-const modules = [];
-let moduleCounter = 0;
+const defaultModules = [];
 for(let min=15; min<=90; min+=5){
-  modules.push({id:min, name:`Module ${min} min`, duration:min});
+  defaultModules.push({name:`Module ${min} min`, duration:min});
 }
-const moduleList = document.getElementById('moduleList');
-modules.forEach(m => {
-  const div = document.createElement('div');
-  div.className = 'module';
-  div.draggable = true;
-  div.textContent = `${m.name}`;
-  div.dataset.duration = m.duration;
-  div.addEventListener('dragstart', e => {
-    e.dataTransfer.setData('text/plain', m.duration);
-    e.dataTransfer.setData('text/moduleName', m.name);
-    e.dataTransfer.setData('text/fromGrid', 'false');
-  });
-  moduleList.appendChild(div);
+
+const groupNames = ["PSDM","RCA","SA","PA","DA","PPA","POA","Default","MIM","ATS","PSDMxp","LDI"];
+const moduleGroups = {};
+groupNames.forEach(g => {
+  moduleGroups[g] = [
+    {name:`${g}-A`, duration:30},
+    {name:`${g}-B`, duration:45},
+    ...defaultModules
+  ];
 });
+
+const customModules = [];
+const moduleList = document.getElementById('moduleList');
+const groupSelect = document.getElementById('groupSelect');
+
+groupNames.forEach(g => {
+  const opt = document.createElement('option');
+  opt.value = g;
+  opt.textContent = g;
+  groupSelect.appendChild(opt);
+});
+groupSelect.value = 'Default';
+
+function renderModuleList(){
+  moduleList.innerHTML = '';
+  const selected = groupSelect.value;
+  const mods = moduleGroups[selected].concat(customModules);
+  mods.forEach(m => {
+    const div = document.createElement('div');
+    div.className = 'module';
+    div.draggable = true;
+    div.textContent = m.name;
+    div.dataset.duration = m.duration;
+    div.dataset.moduleName = m.name;
+    div.addEventListener('dragstart', e => {
+      e.dataTransfer.setData('text/plain', m.duration);
+      e.dataTransfer.setData('text/moduleName', m.name);
+      e.dataTransfer.setData('text/fromGrid', 'false');
+    });
+    moduleList.appendChild(div);
+  });
+}
+
+document.getElementById('addCustomModuleBtn').addEventListener('click', () => {
+  const dur = parseInt(document.getElementById('customDuration').value);
+  const title = document.getElementById('customTitle').value.trim();
+  if(!dur || dur <= 0 || !title){
+    alert('Duration and title required');
+    return;
+  }
+  customModules.push({name:title, duration:dur});
+  document.getElementById('customTitle').value = '';
+  renderModuleList();
+});
+
+groupSelect.addEventListener('change', renderModuleList);
+
+let moduleCounter = 0;
+renderModuleList();
 
 const gridContainer = document.getElementById('grid');
 
