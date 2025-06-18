@@ -57,17 +57,21 @@
 </div>
 <script>
 const defaultModules = [];
-for(let min=15; min<=90; min+=5){
+for(let min=15; min<=90; min+=15){
   defaultModules.push({name:`Module ${min} min`, duration:min});
 }
 
-const groupNames = ["PSDM","RCA","SA","PA","DA","PPA","POA","Default","MIM","ATS","PSDMxp","LDI"];
+const groupNames = ["SA","PA","DA","PPA","POA","Perf Sys","Coach","Faciliatator"];
 const moduleGroups = {};
 groupNames.forEach(g => {
   moduleGroups[g] = [
-    {name:`${g}-A`, duration:30},
-    {name:`${g}-B`, duration:45},
-    ...defaultModules
+    {name:`${g}-Teach 15`, duration:15},
+    {name:`${g}-Practice 15`, duration:15},
+    {name:`${g}-Application 15`, duration:15},
+    {name:`${g}-Teach 30`, duration:30},
+    {name:`${g}-Practice 30`, duration:30},
+    {name:`${g}-Application 30`, duration:30},
+
   ];
 });
 
