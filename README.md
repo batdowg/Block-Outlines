@@ -11,10 +11,3 @@ This simple HTML/JavaScript application helps plan multi-day training workshops.
 
 ## Usage
 Open `BlockOutlines.html` in a modern browser and click **Generate Grid** to create the schedule layout.  Drag items from the module list into the grid.  Grab any cell of a scheduled module to move it elsewhere or drag it back to the list to unschedule.
-
-## Possible Improvements
-- **Persist sessions** – save and load outlines via local storage or file export/import.
-- **Export options** – generate printable or CSV exports of the schedule.
-- **Better styling** – use consistent fonts, spacing and responsive design for small screens.
-- **Module editing** – allow editing or deleting custom modules after creation.
-
