@@ -10,22 +10,28 @@
  body.dark { background:#222; color:#eee; }
  body.dark .module { background:#444; border-color:#666; }
  body.dark .cell.header { background:#555; }
- body.dark .cell { border-color:#666; }
- body.dark #moduleList { border-color:#666; }
+body.dark .cell { border-color:#666; }
+ body.dark .cell.scheduled { border-color:#999; }
+body.dark #moduleList { border-color:#666; }
  body.dark .time-label.header { background:#555; }
 #grid { display: grid; border: 1px solid #000; }
  #timeLabels { display: grid; margin-right: 5px; text-align: right; font-size: 12px; min-width: 40px; }
-  .time-label { line-height: 15px; }
+  .time-label { line-height: 20px; }
   .time-label.header { background: #eee; font-weight: bold; }
-  .cell { border: 1px solid #ccc; min-width: 150px; min-height: 15px; box-sizing: border-box; position: relative; }
- .cell.scheduled { background: #d0eaff; }
+  .cell { border: 1px solid #ccc; min-width: 150px; min-height: 20px; box-sizing: border-box; position: relative; }
+ .cell.scheduled {
+   background: #d0eaff;
+   border-color: #555;
+   border-radius: 3px;
+ }
  .cell.scheduled.start { cursor: grab; }
  .cell.header { background: #eee; text-align:center; font-weight:bold; }
   .module {
     padding: 5px;
     margin: 5px 0;
     background: #f0f0f0;
-    border: 1px solid #ccc;
+    border: 1px solid #888;
+    border-radius: 3px;
     cursor: grab;
     box-sizing: border-box;
     display: flex;
@@ -120,7 +126,7 @@ groupNames.forEach(g => {
 });
 
 let nextModuleId = 0;
-const ROW_HEIGHT = 15;
+const ROW_HEIGHT = 20;
 let undoStack = [];
 let redoStack = [];
 
@@ -377,6 +383,9 @@ function unscheduleModule(moduleId, skipHistory=false){
     c.style.color = '';
     c.style.borderTop = '';
     c.style.borderBottom = '';
+    c.style.borderLeft = '';
+    c.style.borderRight = '';
+    c.style.borderRadius = '';
     c.draggable = false;
     c.removeEventListener('dragstart', dragStartScheduled);
   });
@@ -402,14 +411,24 @@ function scheduleModule(name, duration, day, index, moduleId, color, skipHistory
     // adjust borders so contiguous cells appear as one block
     if(i === 0){
       c.style.borderTop = '';
+      c.style.borderRadius = '3px 3px 0 0';
     } else {
       c.style.borderTop = 'none';
+      c.style.borderRadius = '0';
     }
     if(i === targetCells.length - 1){
       c.style.borderBottom = '';
+      if(i === 0) {
+        c.style.borderRadius = '3px';
+      } else {
+        c.style.borderRadius = `0 0 3px 3px`;
+      }
     } else {
       c.style.borderBottom = 'none';
+      if(i !== 0) c.style.borderRadius = '0';
     }
+    c.style.borderLeft = '1px solid #555';
+    c.style.borderRight = '1px solid #555';
     c.draggable = true;
     c.addEventListener('dragstart', dragStartScheduled);
     if(i===0){
