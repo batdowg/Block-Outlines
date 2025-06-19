@@ -5,9 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Workshop Schedule Builder</title>
 <style>
- body { font-family: Arial, sans-serif; margin: 20px; }
- #controls { margin-bottom: 20px; }
- #grid { display: grid; border: 1px solid #000; }
+ body { font-family: Arial, Helvetica, sans-serif; margin: 20px; line-height:1.4; }
+ #controls { margin-bottom: 20px; display:flex; flex-wrap:wrap; gap:5px; }
+ body.dark { background:#222; color:#eee; }
+ body.dark .module { background:#444; border-color:#666; }
+ body.dark .cell.header { background:#555; }
+ body.dark .cell { border-color:#666; }
+ body.dark #moduleList { border-color:#666; }
+ body.dark .time-label.header { background:#555; }
+#grid { display: grid; border: 1px solid #000; }
  #timeLabels { display: grid; margin-right: 5px; text-align: right; font-size: 12px; min-width: 40px; }
   .time-label { line-height: 15px; }
   .time-label.header { background: #eee; font-weight: bold; }
@@ -25,7 +31,22 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    position: relative;
   }
+  .module button {
+    position:absolute;
+    top:2px;
+    width:18px;
+    height:18px;
+    font-size:12px;
+    line-height:12px;
+    padding:0;
+    border:none;
+    background:transparent;
+    cursor:pointer;
+  }
+  .module button.edit { right:22px; }
+  .module button.delete { right:2px; }
   .module:active { cursor: grabbing; }
   #moduleList {
     max-width: 200px;
@@ -34,6 +55,11 @@
     flex-direction: column;
     padding: 5px;
     margin-right: 10px;
+  }
+  @media (max-width:600px){
+    #controls label { display:block; margin-bottom:5px; }
+    #moduleList { max-width:none; margin-right:0; margin-bottom:10px; }
+    div[style*='display:flex;'] { flex-direction:column; }
   }
 </style>
 </head>
@@ -68,7 +94,14 @@
   </label>
   <button id="addCustomModuleBtn" type="button">Add Custom Module</button>
 </div>
-<button id="generateBtn">Generate Grid</button>
+  <button id="generateBtn">Generate Grid</button>
+  <button id="undoBtn" type="button">Undo</button>
+  <button id="redoBtn" type="button">Redo</button>
+  <button id="exportBtn" type="button">Export JSON</button>
+  <button id="importBtn" type="button">Import JSON</button>
+  <input id="importFile" type="file" accept="application/json" style="display:none">
+  <button id="csvBtn" type="button">Export CSV</button>
+  <button id="darkModeBtn" type="button">Dark Mode</button>
 </div>
 <div style="display:flex;">
 <div id="moduleList"></div>
@@ -88,6 +121,8 @@ groupNames.forEach(g => {
 
 let nextModuleId = 0;
 const ROW_HEIGHT = 15;
+let undoStack = [];
+let redoStack = [];
 
 function isDark(color){
   if(!color) return false;
@@ -160,6 +195,54 @@ const customModules = [];
 const moduleList = document.getElementById('moduleList');
 const groupSelect = document.getElementById('groupSelect');
 
+function saveState(){
+  const scheduled = [];
+  const startCells = gridContainer.querySelectorAll('.cell.scheduled.start');
+  startCells.forEach(sc => {
+    const day = parseInt(sc.dataset.day);
+    const cells = Array.from(gridContainer.querySelectorAll(`.cell[data-day='${day}']`));
+    const index = cells.indexOf(sc);
+    scheduled.push({
+      id: sc.dataset.moduleId,
+      name: sc.dataset.moduleName,
+      duration: parseInt(sc.dataset.duration),
+      day,
+      index,
+      color: sc.dataset.color || ''
+    });
+  });
+  const state = {
+    days: parseInt(document.getElementById('daysSelect').value),
+    start: document.getElementById('startTime').value,
+    end: document.getElementById('endTime').value,
+    customModules: customModules,
+    scheduled
+  };
+  localStorage.setItem('workshopState', JSON.stringify(state));
+}
+
+function loadState(){
+  const data = localStorage.getItem('workshopState');
+  if(!data) return;
+  try{
+    const state = JSON.parse(data);
+    document.getElementById('daysSelect').value = state.days;
+    document.getElementById('startTime').value = state.start;
+    document.getElementById('endTime').value = state.end;
+    customModules.length = 0;
+    state.customModules.forEach(m => customModules.push(m));
+    renderModuleList();
+    generateGrid();
+    state.scheduled.forEach(item => {
+      const mod = findModuleById(item.id);
+      if(mod && !moduleGroups['Default'].includes(mod)) mod.scheduled = true;
+      scheduleModule(item.name, item.duration, item.day, item.index, item.id, item.color, true);
+    });
+  }catch(err){
+    console.error(err);
+  }
+}
+
 groupNames.forEach(g => {
   const opt = document.createElement('option');
   opt.value = g;
@@ -186,6 +269,36 @@ function renderModuleList(){
       }
       div.style.height = `${(m.duration/5)*ROW_HEIGHT}px`;
       div.dataset.color = m.color || '';
+      if(customModules.includes(m)){
+        const editBtn = document.createElement('button');
+        editBtn.textContent = '✎';
+        editBtn.className = 'edit';
+        editBtn.draggable = false;
+        editBtn.addEventListener('click', ev => {
+          ev.stopPropagation();
+          const newTitle = prompt('Module title', m.name) || m.name;
+          const newDur = parseInt(prompt('Duration (min)', m.duration)) || m.duration;
+          m.name = newTitle;
+          m.duration = newDur;
+          renderModuleList();
+          saveState();
+        });
+        const delBtn = document.createElement('button');
+        delBtn.textContent = '✕';
+        delBtn.className = 'delete';
+        delBtn.draggable = false;
+        delBtn.addEventListener('click', ev => {
+          ev.stopPropagation();
+          if(confirm('Delete this module?')){
+            const idx = customModules.indexOf(m);
+            if(idx>=0) customModules.splice(idx,1);
+            renderModuleList();
+            saveState();
+          }
+        });
+        div.appendChild(editBtn);
+        div.appendChild(delBtn);
+      }
       div.addEventListener('dragstart', e => {
         e.dataTransfer.setData('text/plain', m.duration);
         e.dataTransfer.setData('text/moduleName', m.name);
@@ -212,6 +325,7 @@ document.getElementById('addCustomModuleBtn').addEventListener('click', () => {
   customModules.push({id: nextModuleId++, name:title, duration:dur});
   document.getElementById('customTitle').value = '';
   renderModuleList();
+  saveState();
 });
 
 groupSelect.addEventListener('change', renderModuleList);
@@ -243,8 +357,15 @@ function dragStartScheduled(e){
   e.dataTransfer.setData('text/color', cell.dataset.color || '');
 }
 
-function unscheduleModule(moduleId){
+function unscheduleModule(moduleId, skipHistory=false){
   const cells = Array.from(gridContainer.querySelectorAll(`.cell[data-module-id='${moduleId}']`));
+  if(cells.length && !skipHistory){
+    const day = parseInt(cells[0].dataset.day);
+    const all = Array.from(gridContainer.querySelectorAll(`.cell[data-day='${day}']`));
+    const index = all.indexOf(cells[0]);
+    undoStack.push({action:'unschedule', moduleId, day, index, duration:parseInt(cells[0].dataset.duration), name:cells[0].dataset.moduleName, color:cells[0].dataset.color||''});
+    redoStack.length = 0;
+  }
   cells.forEach(c => {
     c.classList.remove('scheduled', 'start');
     c.textContent = '';
@@ -259,12 +380,17 @@ function unscheduleModule(moduleId){
     c.draggable = false;
     c.removeEventListener('dragstart', dragStartScheduled);
   });
+  if(!skipHistory) saveState();
 }
 
-function scheduleModule(name, duration, day, index, moduleId, color){
+function scheduleModule(name, duration, day, index, moduleId, color, skipHistory=false){
   const requiredCells = duration / 5;
   const cells = Array.from(gridContainer.querySelectorAll(`.cell[data-day='${day}']`));
   const targetCells = cells.slice(index, index + requiredCells);
+  if(!skipHistory){
+    undoStack.push({action:'schedule', moduleId, day, index, duration, name, color});
+    redoStack.length = 0;
+  }
   targetCells.forEach((c,i) => {
     c.classList.add('scheduled');
     c.style.background = color || '';
@@ -293,6 +419,7 @@ function scheduleModule(name, duration, day, index, moduleId, color){
       c.textContent = '';
     }
   });
+  if(!skipHistory) saveState();
 }
 
 function minutesBetween(start, end){
@@ -354,6 +481,7 @@ function generateGrid(){
       gridContainer.appendChild(cell);
     }
   }
+  saveState();
 }
 
 function handleDrop(e){
@@ -387,9 +515,90 @@ function handleDrop(e){
   scheduleModule(name, duration, day, index, moduleId, color);
 }
 
+function undo(){
+  const action = undoStack.pop();
+  if(!action) return;
+  if(action.action === 'schedule'){
+    unscheduleModule(action.moduleId, true);
+  } else if(action.action === 'unschedule'){
+    scheduleModule(action.name, action.duration, action.day, action.index, action.moduleId, action.color, true);
+  }
+  redoStack.push(action);
+  saveState();
+}
+
+function redo(){
+  const action = redoStack.pop();
+  if(!action) return;
+  if(action.action === 'schedule'){
+    scheduleModule(action.name, action.duration, action.day, action.index, action.moduleId, action.color, true);
+  } else if(action.action === 'unschedule'){
+    unscheduleModule(action.moduleId, true);
+  }
+  undoStack.push(action);
+  saveState();
+}
+
+function exportJSON(){
+  saveState();
+  const data = localStorage.getItem('workshopState');
+  const blob = new Blob([data], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'schedule.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importJSON(evt){
+  const file = evt.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    localStorage.setItem('workshopState', e.target.result);
+    loadState();
+  };
+  reader.readAsText(file);
+  evt.target.value = '';
+}
+
+function exportCSV(){
+  saveState();
+  const rows = [['Day','Start','Duration','Module']];
+  const startCells = gridContainer.querySelectorAll('.cell.scheduled.start');
+  startCells.forEach(c => {
+    rows.push([
+      parseInt(c.dataset.day)+1,
+      c.dataset.time,
+      c.dataset.duration,
+      c.dataset.moduleName
+    ]);
+  });
+  const csv = rows.map(r => r.join(',')).join('\n');
+  const blob = new Blob([csv], {type:'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'schedule.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function toggleDarkMode(){
+  document.body.classList.toggle('dark');
+}
+
 document.getElementById('generateBtn').addEventListener('click', generateGrid);
+document.getElementById('undoBtn').addEventListener('click', undo);
+document.getElementById('redoBtn').addEventListener('click', redo);
+document.getElementById('exportBtn').addEventListener('click', exportJSON);
+document.getElementById('importBtn').addEventListener('click', () => document.getElementById('importFile').click());
+document.getElementById('importFile').addEventListener('change', importJSON);
+document.getElementById('csvBtn').addEventListener('click', exportCSV);
+document.getElementById('darkModeBtn').addEventListener('click', toggleDarkMode);
 // Ensure the grid renders even if the page load event does not fire
-document.addEventListener('DOMContentLoaded', generateGrid);
+document.addEventListener('DOMContentLoaded', () => { loadState(); if(!localStorage.getItem('workshopState')) generateGrid(); });
 </script>
 </body>
 </html>
