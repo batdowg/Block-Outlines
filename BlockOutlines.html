@@ -284,11 +284,11 @@ function scheduleModule(name, duration, day, index, moduleId, color){
     } else {
       c.style.borderBottom = 'none';
     }
+    c.draggable = true;
+    c.addEventListener('dragstart', dragStartScheduled);
     if(i===0){
       c.classList.add('start');
       c.textContent = `${name} (${duration}m)`;
-      c.draggable = true;
-      c.addEventListener('dragstart', dragStartScheduled);
     } else {
       c.textContent = '';
     }
